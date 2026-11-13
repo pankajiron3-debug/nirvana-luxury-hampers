@@ -84,13 +84,13 @@ const sampleProducts = [
     isFeatured: true,
   },
   {
-    name: 'Black Pearl Caviar & Savory Trunk',
+    name: 'Royal Saffron Paneer & Kesari Trunk',
     sku: 'NLH-GOUR-H808',
-    description: 'Sustainable Siberian sturgeon caviar, mother-of-pearl tasting spoons, artisanal buckwheat blinis, and cultured creme.',
+    description: 'Charcoal-grilled saffron paneer tikka, velvety shahi paneer, aromatic kesari pulao, and mint chutney curated in a luxury keepsake trunk.',
     price: 790,
     stock: 3,
     category: 'Gourmet & Truffle',
-    imageUrl: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80',
+    imageUrl: '/veg-hamper.jpg',
     rating: 4.9,
     isFeatured: true,
   }
