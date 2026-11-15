@@ -1,7 +1,14 @@
 import React from 'react';
 import { Crown, LayoutDashboard, ShoppingBag, Plus, Sparkles, Database } from 'lucide-react';
 
-const Navbar = ({ activeTab, setActiveTab, onOpenCreateModal, isOnline = true }) => {
+const Navbar = ({
+  activeTab,
+  setActiveTab,
+  onOpenCreateModal,
+  cartCount = 0,
+  onOpenCart,
+  isOnline = true,
+}) => {
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-800/80 bg-[#0A0D14]/90 backdrop-blur-xl">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -24,7 +31,7 @@ const Navbar = ({ activeTab, setActiveTab, onOpenCreateModal, isOnline = true })
                 </span>
               </div>
               <p className="text-[11px] tracking-widest uppercase text-slate-400 font-medium">
-                Luxury Curated Hampers
+                Luxury Curated Hampers · ₹ INR
               </p>
             </div>
           </div>
@@ -56,11 +63,25 @@ const Navbar = ({ activeTab, setActiveTab, onOpenCreateModal, isOnline = true })
           </div>
 
           {/* Action Area & Status */}
-          <div className="flex items-center space-x-4">
-            <div className="hidden md:flex items-center space-x-2 text-xs font-mono px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400">
+          <div className="flex items-center space-x-3 sm:space-x-4">
+            <div className="hidden lg:flex items-center space-x-2 text-xs font-mono px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
               <span>API Gateway: Active</span>
             </div>
+
+            {/* Cart Button */}
+            <button
+              onClick={onOpenCart}
+              className="relative p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:border-gold-500/40 transition-all duration-200 shadow-md group"
+              title="View Luxury Cart"
+            >
+              <ShoppingBag className="w-5 h-5 text-slate-300 group-hover:text-gold-400 transition-colors" />
+              {cartCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1.5 rounded-full bg-gold-500 text-slate-950 text-[11px] font-bold flex items-center justify-center shadow-lg shadow-gold-500/30 animate-in zoom-in-75">
+                  {cartCount}
+                </span>
+              )}
+            </button>
 
             <button
               onClick={onOpenCreateModal}

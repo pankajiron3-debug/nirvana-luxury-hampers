@@ -65,7 +65,7 @@ const ProductTable = ({
             </th>
             <th className="py-4 px-4 cursor-pointer hover:text-white transition-colors" onClick={() => onSort('price')}>
               <div className="flex items-center space-x-1">
-                <span>Price (USD)</span>
+                <span>Price (₹ INR)</span>
                 <ArrowUpDown className="w-3 h-3 text-slate-500" />
               </div>
             </th>
@@ -137,7 +137,7 @@ const ProductTable = ({
 
                   {/* Price */}
                   <td className="py-4 px-4 font-mono font-semibold text-slate-100">
-                    ${Number(product.price).toLocaleString()}
+                    ₹{Number(product.price).toLocaleString('en-IN')}
                   </td>
 
                   {/* Stock Status */}
@@ -147,7 +147,7 @@ const ProductTable = ({
 
                   {/* Total Valuation */}
                   <td className="py-4 px-4 font-mono text-slate-300 text-xs">
-                    ${Number(valuation).toLocaleString()}
+                    ₹{Number(valuation).toLocaleString('en-IN')}
                   </td>
 
                   {/* Actions */}

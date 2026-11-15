@@ -1,14 +1,17 @@
 import React from 'react';
 import { ShoppingBag, Star, Sparkles, AlertCircle } from 'lucide-react';
 
-const ProductCard = ({ product, onQuickAction }) => {
+const ProductCard = ({ product, onQuickAction, onViewDetails }) => {
   const isOutOfStock = product.stock === 0;
 
   return (
     <div className="group relative flex flex-col rounded-2xl bg-gradient-to-b from-slate-900/90 to-slate-950 border border-slate-800/80 hover:border-gold-500/40 overflow-hidden transition-all duration-500 hover:shadow-2xl hover:shadow-gold-500/10 hover:-translate-y-1">
       
       {/* Image Container */}
-      <div className="relative h-64 sm:h-72 w-full overflow-hidden bg-slate-900">
+      <div
+        className="relative h-64 sm:h-72 w-full overflow-hidden bg-slate-900 cursor-pointer"
+        onClick={() => onViewDetails && onViewDetails(product)}
+      >
         <img
           src={product.imageUrl}
           alt={product.name}
@@ -51,7 +54,10 @@ const ProductCard = ({ product, onQuickAction }) => {
             <span className="text-slate-500 ml-1">· Handcrafted Luxe</span>
           </div>
 
-          <h3 className="font-serif text-lg font-bold text-white group-hover:text-gold-200 transition-colors line-clamp-1">
+          <h3
+            onClick={() => onViewDetails && onViewDetails(product)}
+            className="font-serif text-lg font-bold text-white group-hover:text-gold-200 transition-colors line-clamp-1 cursor-pointer"
+          >
             {product.name}
           </h3>
 
@@ -64,10 +70,10 @@ const ProductCard = ({ product, onQuickAction }) => {
         <div className="mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-between">
           <div>
             <span className="text-[10px] uppercase tracking-wider text-slate-500 block">
-              Curated Price
+              Curated Price (INR)
             </span>
             <span className="text-xl font-serif font-bold text-white">
-              ${Number(product.price).toLocaleString()}
+              ₹{Number(product.price).toLocaleString('en-IN')}
             </span>
           </div>
 

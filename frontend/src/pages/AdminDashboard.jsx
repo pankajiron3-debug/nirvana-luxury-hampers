@@ -187,7 +187,7 @@ const AdminDashboard = ({ isModalOpen, setIsModalOpen }) => {
             />
             <StatCard
               title="Total Inventory Value"
-              value={`$${(analytics?.totalInventoryValue || 0).toLocaleString()}`}
+              value={`₹${(analytics?.totalInventoryValue || 0).toLocaleString('en-IN')}`}
               subtitle="Calculated at wholesale asset value"
               icon={CircleDollarSign}
               trend="Optimized"
@@ -203,7 +203,7 @@ const AdminDashboard = ({ isModalOpen, setIsModalOpen }) => {
             />
             <StatCard
               title="Average Hamper Value"
-              value={`$${(analytics?.averageProductPrice || 0).toLocaleString()}`}
+              value={`₹${Math.round(analytics?.averageProductPrice || 0).toLocaleString('en-IN')}`}
               subtitle="Mean luxury customer basket"
               icon={PackageCheck}
               trend="Premium Tier"

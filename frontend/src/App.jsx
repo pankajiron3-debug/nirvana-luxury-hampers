@@ -4,13 +4,22 @@ import Navbar from './components/Navbar';
 import AdminDashboard from './pages/AdminDashboard';
 import Storefront from './pages/Storefront';
 import ProductModal from './components/ProductModal';
+import CartDrawer from './components/CartDrawer';
+import CheckoutModal from './components/CheckoutModal';
+import ProductDetailModal from './components/ProductDetailModal';
 import { productApi } from './api/client';
 import toast from 'react-hot-toast';
 
 function App() {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState('storefront');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
+
+  // Cart & Checkout States
+  const [cartItems, setCartItems] = useState([]);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [selectedDetailProduct, setSelectedDetailProduct] = useState(null);
 
   const handleGlobalCreate = async (formData) => {
     setModalLoading(true);
@@ -18,7 +27,6 @@ function App() {
       const res = await productApi.createProduct(formData);
       toast.success(`Curated "${res.product?.name || 'Hamper'}" successfully!`);
       setIsModalOpen(false);
-      // If we are currently in storefront, switch or let it reload
     } catch (err) {
       const msg = err.response?.data?.message || 'Error creating hamper.';
       toast.error(msg);
@@ -26,6 +34,54 @@ function App() {
       setModalLoading(false);
     }
   };
+
+  // Cart Operations
+  const handleAddToCart = (product, quantity = 1) => {
+    setCartItems((prevItems) => {
+      const existingIndex = prevItems.findIndex((item) => item.product._id === product._id);
+      if (existingIndex > -1) {
+        const updated = [...prevItems];
+        updated[existingIndex].quantity += quantity;
+        return updated;
+      }
+      return [...prevItems, { product, quantity }];
+    });
+
+    toast.success(`Added "${product.name}" to luxury cart!`, {
+      icon: '💎',
+      style: {
+        background: '#0F172A',
+        color: '#F8FAFC',
+        border: '1px solid rgba(197, 160, 89, 0.4)',
+      },
+    });
+    setIsCartOpen(true);
+  };
+
+  const handleUpdateQuantity = (productId, delta) => {
+    setCartItems((prev) =>
+      prev
+        .map((item) => {
+          if (item.product._id === productId) {
+            const newQty = item.quantity + delta;
+            return newQty > 0 ? { ...item, quantity: newQty } : null;
+          }
+          return item;
+        })
+        .filter(Boolean)
+    );
+  };
+
+  const handleRemoveItem = (productId) => {
+    setCartItems((prev) => prev.filter((item) => item.product._id !== productId));
+    toast.success('Hamper removed from cart.');
+  };
+
+  const handleClearCart = () => {
+    setCartItems([]);
+  };
+
+  const totalCartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#0A0D14] text-slate-100 font-sans selection:bg-gold-500/30 selection:text-gold-200">
@@ -63,6 +119,8 @@ function App() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onOpenCreateModal={() => setIsModalOpen(true)}
+        cartCount={totalCartCount}
+        onOpenCart={() => setIsCartOpen(true)}
       />
 
       {/* Main Content Area */}
@@ -73,7 +131,10 @@ function App() {
             setIsModalOpen={setIsModalOpen}
           />
         ) : (
-          <Storefront />
+          <Storefront
+            onAddToCart={handleAddToCart}
+            onViewDetails={(product) => setSelectedDetailProduct(product)}
+          />
         )}
       </main>
 
@@ -85,14 +146,40 @@ function App() {
         isLoading={modalLoading}
       />
 
+      {/* Luxury Cart Drawer (₹ INR & Indian Shipping Threshold) */}
+      <CartDrawer
+        isOpen={isCartOpen}
+        onClose={() => setIsCartOpen(false)}
+        items={cartItems}
+        onUpdateQuantity={handleUpdateQuantity}
+        onRemoveItem={handleRemoveItem}
+        onProceedToCheckout={() => setIsCheckoutOpen(true)}
+      />
+
+      {/* Indian Checkout & Shipping Modal (PIN Code, Indian Metros, UPI/NetBanking) */}
+      <CheckoutModal
+        isOpen={isCheckoutOpen}
+        onClose={() => setIsCheckoutOpen(false)}
+        items={cartItems}
+        onClearCart={handleClearCart}
+      />
+
+      {/* Product Details Modal */}
+      <ProductDetailModal
+        isOpen={Boolean(selectedDetailProduct)}
+        onClose={() => setSelectedDetailProduct(null)}
+        product={selectedDetailProduct}
+        onAddToCart={handleAddToCart}
+      />
+
       {/* Luxury Footer */}
       <footer className="border-t border-slate-800/80 bg-slate-950/80 py-8 text-center text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 space-y-2">
           <p className="font-serif tracking-wider text-slate-400">
-            NIRVANA LUXURY HAMPERS · BESPOKE COMMERCE PLATFORM
+            NIRVANA LUXURY HAMPERS · BESPOKE COMMERCE PLATFORM (₹ INR)
           </p>
           <p>
-            Full-Stack Internship Portfolio Project · Engineered with Node.js, Express, MongoDB Aggregations, React & Tailwind CSS
+            Full-Stack Internship Portfolio Project · Indian Localization Edition · Free Delivery Above ₹2,999 · Node.js, Express, MongoDB Aggregations, React & Tailwind CSS
           </p>
         </div>
       </footer>

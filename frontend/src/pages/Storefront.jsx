@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Compass, Search, ShoppingBag } from 'lucide-react';
+import { Sparkles, Compass, Search, ShoppingBag, Truck, ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { productApi } from '../api/client';
 import ProductCard from '../components/ProductCard';
@@ -15,7 +15,7 @@ const CATEGORIES = [
   'Corporate Luxe',
 ];
 
-const Storefront = () => {
+const Storefront = ({ onAddToCart, onViewDetails }) => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -46,14 +46,18 @@ const Storefront = () => {
   }, [selectedCategory, search]);
 
   const handleSelectProduct = (product) => {
-    toast.success(`Selected "${product.name}" for bespoke inquiry!`, {
-      icon: '💎',
-      style: {
-        background: '#0F172A',
-        color: '#F8FAFC',
-        border: '1px solid rgba(197, 160, 89, 0.3)',
-      },
-    });
+    if (onAddToCart) {
+      onAddToCart(product);
+    } else {
+      toast.success(`Selected "${product.name}" (₹${Number(product.price).toLocaleString('en-IN')}) for bespoke inquiry!`, {
+        icon: '💎',
+        style: {
+          background: '#0F172A',
+          color: '#F8FAFC',
+          border: '1px solid rgba(197, 160, 89, 0.3)',
+        },
+      });
+    }
   };
 
   return (
@@ -65,7 +69,7 @@ const Storefront = () => {
         <div className="relative max-w-3xl mx-auto space-y-4">
           <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-gold-500/10 border border-gold-500/20 text-gold-400 text-xs font-semibold uppercase tracking-widest">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>The Fine Art of Gifting</span>
+            <span>The Fine Art of Gifting · Indian Luxe Edition</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl font-serif font-bold text-white tracking-tight leading-tight">
@@ -73,8 +77,14 @@ const Storefront = () => {
           </h1>
 
           <p className="text-sm sm:text-base text-slate-300 max-w-2xl mx-auto font-light leading-relaxed">
-            Discover bespoke gift collections, imported epicurean delicacies, and limited-edition celebratory trunks handcrafted for extraordinary moments.
+            Discover bespoke gift collections, imported epicurean delicacies, and limited-edition celebratory trunks handcrafted for extraordinary moments across India.
           </p>
+
+          {/* Pan-India Shipping Highlight Pill */}
+          <div className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-slate-900/90 border border-slate-800 text-xs text-slate-300 backdrop-blur-md">
+            <Truck className="w-3.5 h-3.5 text-gold-400" />
+            <span>Complimentary White-Glove Shipping on orders above <strong>₹2,999</strong> (Standard <strong>₹199</strong>)</span>
+          </div>
 
           {/* Search bar inside Hero */}
           <div className="pt-4 max-w-md mx-auto relative">
@@ -143,6 +153,7 @@ const Storefront = () => {
                 key={product._id}
                 product={product}
                 onQuickAction={handleSelectProduct}
+                onViewDetails={onViewDetails}
               />
             ))}
           </div>
