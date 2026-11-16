@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Sparkles, Image as ImageIcon, DollarSign, Package, Tag, FileText } from 'lucide-react';
+import { X, Package } from 'lucide-react';
 
 const CATEGORIES = [
   'Royal Hampers',
@@ -49,7 +49,7 @@ const ProductModal = ({ isOpen, onClose, onSubmit, initialData = null, isLoading
 
   const validate = () => {
     const errors = {};
-    if (!formData.name.trim()) errors.name = 'Hamper name is required';
+    if (!formData.name.trim()) errors.name = 'Hamper title is required';
     if (formData.price === '' || isNaN(Number(formData.price)) || Number(formData.price) < 0) {
       errors.price = 'Valid price is required';
     }
@@ -73,27 +73,27 @@ const ProductModal = ({ isOpen, onClose, onSubmit, initialData = null, isLoading
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="relative w-full max-w-2xl rounded-2xl bg-gradient-to-b from-slate-900 via-slate-925 to-slate-950 border border-slate-800 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+      <div className="relative w-full max-w-2xl rounded-md bg-[#FCFBF8] border border-[#E5DEC9] shadow-modal overflow-hidden animate-in fade-in zoom-in-98 duration-150">
         
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-800/80 bg-slate-900/40">
-          <div className="flex items-center space-x-2">
-            <div className="p-2 rounded-lg bg-gold-500/10 text-gold-400 border border-gold-500/20">
-              <Sparkles className="w-5 h-5" />
+        <div className="flex items-center justify-between px-6 py-5 border-b border-[#E5DEC9] bg-[#F7F3EB]/70">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 rounded-md bg-[#F7F3EB] text-[#9E331E] border border-[#E5DEC9]">
+              <Package className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-serif text-lg font-bold text-white">
-                {initialData ? 'Refine Luxury Hamper' : 'Curate New Luxury Hamper'}
+              <h3 className="font-serif text-lg font-bold text-[#1E1916]">
+                {initialData ? 'Edit Hamper Details' : 'Add New Hamper'}
               </h3>
-              <p className="text-xs text-slate-400">
-                {initialData ? 'Update pricing, inventory, and presentation' : 'Add an exclusive hamper to your collection catalogue'}
+              <p className="text-xs text-[#6B6259]">
+                {initialData ? 'Update hamper stock, pricing, and description' : 'Enter hamper details to publish to the store inventory'}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-2 rounded-md text-[#6B6259] hover:text-[#1E1916] hover:bg-[#E5DEC9]/50 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -101,39 +101,39 @@ const ProductModal = ({ isOpen, onClose, onSubmit, initialData = null, isLoading
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* Hamper Name */}
+          {/* Hamper Title */}
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-              Hamper Title <span className="text-rose-400">*</span>
+            <label className="block text-xs font-medium uppercase tracking-wider text-[#1E1916] mb-1.5">
+              Hamper Title <span className="text-[#9E331E]">*</span>
             </label>
             <input
               type="text"
-              placeholder="e.g. Sovereign Reserve Champagne Box"
+              placeholder="e.g. Royal Saffron & Dry Fruit Trunk"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className={`w-full px-4 py-2.5 rounded-xl bg-slate-950 border text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-gold-500/50 transition-all ${
-                formErrors.name ? 'border-rose-500' : 'border-slate-800'
+              className={`w-full px-3.5 py-2 rounded-md bg-[#F7F3EB] border text-xs text-[#1E1916] placeholder-[#A59D94] focus:outline-none focus:border-[#9E331E] transition-colors ${
+                formErrors.name ? 'border-[#9E331E]' : 'border-[#E5DEC9]'
               }`}
             />
             {formErrors.name && (
-              <p className="text-rose-400 text-xs mt-1">{formErrors.name}</p>
+              <p className="text-[#9E331E] text-xs mt-1">{formErrors.name}</p>
             )}
           </div>
 
-          {/* Grid: Category & Price & Stock */}
+          {/* Grid: Category, Price, Stock */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {/* Category */}
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                Category <span className="text-rose-400">*</span>
+              <label className="block text-xs font-medium uppercase tracking-wider text-[#1E1916] mb-1.5">
+                Category <span className="text-[#9E331E]">*</span>
               </label>
               <select
                 value={formData.category}
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-gold-500/50"
+                className="w-full px-3 py-2 rounded-md bg-[#F7F3EB] border border-[#E5DEC9] text-xs text-[#1E1916] focus:outline-none focus:border-[#9E331E] transition-colors"
               >
                 {CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat} className="bg-slate-900 text-white">
+                  <option key={cat} value={cat}>
                     {cat}
                   </option>
                 ))}
@@ -142,53 +142,53 @@ const ProductModal = ({ isOpen, onClose, onSubmit, initialData = null, isLoading
 
             {/* Price */}
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                Price (₹ INR) <span className="text-rose-400">*</span>
+              <label className="block text-xs font-medium uppercase tracking-wider text-[#1E1916] mb-1.5">
+                Price (₹ INR) <span className="text-[#9E331E]">*</span>
               </label>
               <div className="relative">
-                <span className="absolute left-3.5 top-2.5 text-slate-500 text-sm">₹</span>
+                <span className="absolute left-3 top-2 text-[#6B6259] text-xs">₹</span>
                 <input
                   type="number"
                   min="0"
                   step="1"
-                  placeholder="4999"
+                  placeholder="3499"
                   value={formData.price}
                   onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                  className={`w-full pl-8 pr-4 py-2.5 rounded-xl bg-slate-950 border text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-gold-500/50 ${
-                    formErrors.price ? 'border-rose-500' : 'border-slate-800'
+                  className={`w-full pl-7 pr-3 py-2 rounded-md bg-[#F7F3EB] border text-xs text-[#1E1916] placeholder-[#A59D94] focus:outline-none focus:border-[#9E331E] transition-colors ${
+                    formErrors.price ? 'border-[#9E331E]' : 'border-[#E5DEC9]'
                   }`}
                 />
               </div>
               {formErrors.price && (
-                <p className="text-rose-400 text-xs mt-1">{formErrors.price}</p>
+                <p className="text-[#9E331E] text-xs mt-1">{formErrors.price}</p>
               )}
             </div>
 
             {/* Stock */}
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                Inventory Stock <span className="text-rose-400">*</span>
+              <label className="block text-xs font-medium uppercase tracking-wider text-[#1E1916] mb-1.5">
+                Available Stock <span className="text-[#9E331E]">*</span>
               </label>
               <input
                 type="number"
                 min="0"
-                placeholder="10"
+                placeholder="15"
                 value={formData.stock}
                 onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-                className={`w-full px-4 py-2.5 rounded-xl bg-slate-950 border text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-gold-500/50 ${
-                  formErrors.stock ? 'border-rose-500' : 'border-slate-800'
+                className={`w-full px-3 py-2 rounded-md bg-[#F7F3EB] border text-xs text-[#1E1916] placeholder-[#A59D94] focus:outline-none focus:border-[#9E331E] transition-colors ${
+                  formErrors.stock ? 'border-[#9E331E]' : 'border-[#E5DEC9]'
                 }`}
               />
               {formErrors.stock && (
-                <p className="text-rose-400 text-xs mt-1">{formErrors.stock}</p>
+                <p className="text-[#9E331E] text-xs mt-1">{formErrors.stock}</p>
               )}
             </div>
           </div>
 
           {/* Image URL */}
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-              Curated Image URL
+            <label className="block text-xs font-medium uppercase tracking-wider text-[#1E1916] mb-1.5">
+              Hamper Image Link
             </label>
             <div className="flex gap-3">
               <input
@@ -196,10 +196,10 @@ const ProductModal = ({ isOpen, onClose, onSubmit, initialData = null, isLoading
                 placeholder="https://images.unsplash.com/..."
                 value={formData.imageUrl}
                 onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                className="flex-1 px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-gold-500/50"
+                className="flex-1 px-3.5 py-2 rounded-md bg-[#F7F3EB] border border-[#E5DEC9] text-xs text-[#1E1916] placeholder-[#A59D94] focus:outline-none focus:border-[#9E331E] transition-colors"
               />
               {formData.imageUrl && (
-                <div className="w-11 h-11 rounded-lg overflow-hidden bg-slate-800 border border-slate-700 shrink-0">
+                <div className="w-10 h-10 rounded-sm overflow-hidden bg-[#F7F3EB] border border-[#E5DEC9] shrink-0">
                   <img
                     src={formData.imageUrl}
                     alt="Preview"
@@ -211,39 +211,39 @@ const ProductModal = ({ isOpen, onClose, onSubmit, initialData = null, isLoading
                 </div>
               )}
             </div>
-            <p className="text-[11px] text-slate-500 mt-1">High-resolution photographic link representing the gift package.</p>
+            <p className="text-[11px] text-[#6B6259] mt-1">Direct photograph link representing the curated gift package.</p>
           </div>
 
           {/* Description */}
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-              Artisanal Description
+            <label className="block text-xs font-medium uppercase tracking-wider text-[#1E1916] mb-1.5">
+              Hamper Description & Contents
             </label>
             <textarea
               rows="3"
-              placeholder="Outline the rare provisions, vintage bottles, packaging materials, or unboxing experience..."
+              placeholder="Detail the handcrafted delicacies, confections, packaging, or festive accompaniments included..."
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-gold-500/50 resize-none"
+              className="w-full px-3.5 py-2 rounded-md bg-[#F7F3EB] border border-[#E5DEC9] text-xs text-[#1E1916] placeholder-[#A59D94] focus:outline-none focus:border-[#9E331E] transition-colors resize-none"
             ></textarea>
           </div>
 
           {/* Actions */}
-          <div className="pt-4 border-t border-slate-800/80 flex items-center justify-end space-x-3">
+          <div className="pt-4 border-t border-[#E5DEC9] flex items-center justify-end space-x-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 rounded-xl border border-slate-800 text-slate-300 hover:bg-slate-800/60 text-sm font-medium transition-colors"
+              className="px-4 py-2 rounded-md border border-[#E5DEC9] text-[#6B6259] hover:bg-[#E5DEC9]/50 text-xs font-medium transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isLoading}
-              className="px-6 py-2.5 rounded-xl bg-gold-500 hover:bg-gold-400 text-slate-950 font-semibold text-sm transition-all shadow-lg shadow-gold-500/20 disabled:opacity-50 flex items-center space-x-2"
+              className="px-5 py-2 rounded-md bg-[#9E331E] hover:bg-[#842917] text-[#FCFBF8] font-medium text-xs uppercase tracking-wider transition-colors shadow-xs disabled:opacity-50 flex items-center space-x-2"
             >
-              {isLoading && <span className="w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin"></span>}
-              <span>{initialData ? 'Save Changes' : 'Publish Hamper'}</span>
+              {isLoading && <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>}
+              <span>{initialData ? 'Save Changes' : 'Add Hamper'}</span>
             </button>
           </div>
         </form>

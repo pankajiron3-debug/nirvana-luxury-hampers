@@ -25,7 +25,7 @@ function App() {
     setModalLoading(true);
     try {
       const res = await productApi.createProduct(formData);
-      toast.success(`Curated "${res.product?.name || 'Hamper'}" successfully!`);
+      toast.success(`"${res.product?.name || 'Hamper'}" added to catalogue.`);
       setIsModalOpen(false);
     } catch (err) {
       const msg = err.response?.data?.message || 'Error creating hamper.';
@@ -47,14 +47,7 @@ function App() {
       return [...prevItems, { product, quantity }];
     });
 
-    toast.success(`Added "${product.name}" to luxury cart!`, {
-      icon: '💎',
-      style: {
-        background: '#0F172A',
-        color: '#F8FAFC',
-        border: '1px solid rgba(197, 160, 89, 0.4)',
-      },
-    });
+    toast.success(`Added "${product.name}" to cart.`);
     setIsCartOpen(true);
   };
 
@@ -84,7 +77,7 @@ function App() {
   const totalCartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#0A0D14] text-slate-100 font-sans selection:bg-gold-500/30 selection:text-gold-200">
+    <div className="min-h-screen flex flex-col bg-[#F7F3EB] text-[#1E1916] font-sans selection:bg-[#9E331E]/20 selection:text-[#9E331E]">
       
       {/* Toast Notification Provider */}
       <Toaster
@@ -92,23 +85,25 @@ function App() {
         toastOptions={{
           duration: 3500,
           style: {
-            background: '#0F172A',
-            color: '#F8FAFC',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            borderRadius: '1rem',
-            padding: '12px 16px',
+            background: '#FCFBF8',
+            color: '#1E1916',
+            border: '1px solid #E5DEC9',
+            borderRadius: '6px',
+            padding: '12px 18px',
             fontSize: '13px',
+            fontFamily: '"Plus Jakarta Sans", sans-serif',
+            boxShadow: '0 4px 14px -2px rgba(30, 25, 22, 0.08)',
           },
           success: {
             iconTheme: {
-              primary: '#C5A059',
-              secondary: '#0F172A',
+              primary: '#3D5A3C',
+              secondary: '#FCFBF8',
             },
           },
           error: {
             iconTheme: {
-              primary: '#F43F5E',
-              secondary: '#0F172A',
+              primary: '#9E331E',
+              secondary: '#FCFBF8',
             },
           },
         }}
@@ -138,7 +133,7 @@ function App() {
         )}
       </main>
 
-      {/* Global Quick Add Modal */}
+      {/* Quick Add Modal */}
       <ProductModal
         isOpen={isModalOpen && activeTab !== 'dashboard'}
         onClose={() => setIsModalOpen(false)}
@@ -146,7 +141,7 @@ function App() {
         isLoading={modalLoading}
       />
 
-      {/* Luxury Cart Drawer (₹ INR & Indian Shipping Threshold) */}
+      {/* Cart Drawer */}
       <CartDrawer
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
@@ -156,7 +151,7 @@ function App() {
         onProceedToCheckout={() => setIsCheckoutOpen(true)}
       />
 
-      {/* Indian Checkout & Shipping Modal (PIN Code, Indian Metros, UPI/NetBanking) */}
+      {/* Razorpay Checkout & Shipping Modal */}
       <CheckoutModal
         isOpen={isCheckoutOpen}
         onClose={() => setIsCheckoutOpen(false)}
@@ -172,14 +167,17 @@ function App() {
         onAddToCart={handleAddToCart}
       />
 
-      {/* Luxury Footer */}
-      <footer className="border-t border-slate-800/80 bg-slate-950/80 py-8 text-center text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto px-4 space-y-2">
-          <p className="font-serif tracking-wider text-slate-400">
-            NIRVANA LUXURY HAMPERS · BESPOKE COMMERCE PLATFORM (₹ INR)
+      {/* Editorial Footer */}
+      <footer className="border-t border-[#E5DEC9] bg-[#FCFBF8] py-10 text-center text-xs text-[#6B6259]">
+        <div className="max-w-7xl mx-auto px-4 space-y-3">
+          <p className="font-serif text-sm tracking-widest uppercase text-[#1E1916] font-semibold">
+            NIRVANA LUXURY HAMPERS · HANDCRAFTED GIFTS & HAMPERS
           </p>
-          <p>
-            Full-Stack Internship Portfolio Project · Indian Localization Edition · Free Delivery Above ₹2,999 · Node.js, Express, MongoDB Aggregations, React & Tailwind CSS
+          <p className="max-w-xl mx-auto leading-relaxed">
+            Thoughtfully curated festive hampers, artisanal delicacies, and celebratory collections dispatched across India. Complimentary delivery on orders above ₹2,999.
+          </p>
+          <p className="text-[11px] text-[#8E857C] pt-2 border-t border-[#E5DEC9]/60 max-w-sm mx-auto">
+            © {new Date().getFullYear()} Nirvana Luxury Hampers. All rights reserved.
           </p>
         </div>
       </footer>

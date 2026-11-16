@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Compass, Search, ShoppingBag, Truck, ShieldCheck } from 'lucide-react';
+import { Search, ShoppingBag, Truck } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { productApi } from '../api/client';
 import ProductCard from '../components/ProductCard';
@@ -35,7 +35,7 @@ const Storefront = ({ onAddToCart, onViewDetails }) => {
         }
       } catch (err) {
         console.error(err);
-        toast.error('Could not load storefront hampers.');
+        toast.error('Could not load hampers. Please try again.');
       } finally {
         setLoading(false);
       }
@@ -48,59 +48,48 @@ const Storefront = ({ onAddToCart, onViewDetails }) => {
   const handleSelectProduct = (product) => {
     if (onAddToCart) {
       onAddToCart(product);
-    } else {
-      toast.success(`Selected "${product.name}" (₹${Number(product.price).toLocaleString('en-IN')}) for bespoke inquiry!`, {
-        icon: '💎',
-        style: {
-          background: '#0F172A',
-          color: '#F8FAFC',
-          border: '1px solid rgba(197, 160, 89, 0.3)',
-        },
-      });
     }
   };
 
   return (
-    <div className="space-y-12 animate-in fade-in duration-300">
+    <div className="space-y-10 animate-in fade-in duration-200">
       
-      {/* Luxury Hero Banner */}
-      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-950 via-[#121829] to-slate-950 border border-gold-500/20 p-8 sm:p-14 text-center shadow-2xl">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-gold-500/10 via-transparent to-transparent"></div>
-        <div className="relative max-w-3xl mx-auto space-y-4">
-          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-gold-500/10 border border-gold-500/20 text-gold-400 text-xs font-semibold uppercase tracking-widest">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>The Fine Art of Gifting · Indian Luxe Edition</span>
+      {/* Editorial Hero Section */}
+      <section className="relative overflow-hidden rounded-md bg-[#FCFBF8] border border-[#E5DEC9] p-8 sm:p-14 text-center">
+        <div className="relative max-w-2xl mx-auto space-y-4">
+          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-[#F7F3EB] border border-[#E5DEC9] text-[#9E331E] text-xs font-medium uppercase tracking-widest">
+            <span>Handcrafted Festive & Celebratory Gifting</span>
           </div>
 
-          <h1 className="text-3xl sm:text-5xl font-serif font-bold text-white tracking-tight leading-tight">
-            Curated Expressions of Opulence & Distinction
+          <h1 className="text-3xl sm:text-5xl font-serif font-bold text-[#1E1916] tracking-tight leading-tight">
+            Curated Expressions of Warmth & Celebration
           </h1>
 
-          <p className="text-sm sm:text-base text-slate-300 max-w-2xl mx-auto font-light leading-relaxed">
-            Discover bespoke gift collections, imported epicurean delicacies, and limited-edition celebratory trunks handcrafted for extraordinary moments across India.
+          <p className="text-sm sm:text-base text-[#6B6259] max-w-xl mx-auto font-normal leading-relaxed">
+            Thoughtful gift collections, artisanal festive sweets, and regional epicurean treasures curated with care and dispatched across India.
           </p>
 
-          {/* Pan-India Shipping Highlight Pill */}
-          <div className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-slate-900/90 border border-slate-800 text-xs text-slate-300 backdrop-blur-md">
-            <Truck className="w-3.5 h-3.5 text-gold-400" />
-            <span>Complimentary White-Glove Shipping on orders above <strong>₹2,999</strong> (Standard <strong>₹199</strong>)</span>
+          {/* Pan-India Shipping Highlight */}
+          <div className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-[#F7F3EB] border border-[#E5DEC9] text-xs text-[#6B6259]">
+            <Truck className="w-3.5 h-3.5 text-[#9E331E]" />
+            <span>Complimentary delivery across India on orders above <strong>₹2,999</strong> (Standard <strong>₹199</strong>)</span>
           </div>
 
           {/* Search bar inside Hero */}
-          <div className="pt-4 max-w-md mx-auto relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-4 top-4" />
+          <div className="pt-3 max-w-md mx-auto relative">
+            <Search className="w-4 h-4 text-[#6B6259] absolute left-3.5 top-3.5" />
             <input
               type="text"
-              placeholder="Search by collection or delicacies..."
+              placeholder="Search by hamper title or contents..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 rounded-2xl bg-black/60 border border-slate-700/80 text-sm text-slate-100 placeholder-slate-400 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-gold-500/50 shadow-inner"
+              className="w-full pl-10 pr-4 py-2.5 rounded-md bg-[#F7F3EB] border border-[#E5DEC9] text-sm text-[#1E1916] placeholder-[#A59D94] focus:outline-none focus:border-[#9E331E] transition-colors"
             />
           </div>
         </div>
       </section>
 
-      {/* Category Pills Filter */}
+      {/* Category Filter Pills */}
       <div className="flex items-center justify-center gap-2 overflow-x-auto pb-2 scrollbar-none">
         {CATEGORIES.map((cat) => {
           const isActive = selectedCategory === cat;
@@ -108,10 +97,10 @@ const Storefront = ({ onAddToCart, onViewDetails }) => {
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`px-4 py-2 rounded-xl text-xs font-medium tracking-wide whitespace-nowrap transition-all duration-200 ${
+              className={`px-4 py-2 rounded-md text-xs tracking-wider uppercase transition-colors whitespace-nowrap ${
                 isActive
-                  ? 'bg-gold-500 text-slate-950 font-bold shadow-lg shadow-gold-500/20 scale-105'
-                  : 'bg-slate-900/80 text-slate-400 hover:text-white border border-slate-800 hover:border-slate-700'
+                  ? 'bg-[#9E331E] text-[#FCFBF8] font-semibold shadow-sm'
+                  : 'bg-[#FCFBF8] text-[#6B6259] hover:text-[#1E1916] border border-[#E5DEC9] hover:border-[#9E331E]/40'
               }`}
             >
               {cat}
@@ -122,15 +111,12 @@ const Storefront = ({ onAddToCart, onViewDetails }) => {
 
       {/* Storefront Grid */}
       <div>
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center space-x-2">
-            <Compass className="w-5 h-5 text-gold-400" />
-            <h2 className="font-serif text-xl font-bold text-white">
-              {selectedCategory === 'All' ? 'Complete Collection' : selectedCategory}
-            </h2>
-          </div>
-          <span className="text-xs font-mono text-slate-400">
-            {products.length} {products.length === 1 ? 'Curated Gift' : 'Curated Gifts'}
+        <div className="flex items-center justify-between mb-6 pb-3 border-b border-[#E5DEC9]">
+          <h2 className="font-serif text-2xl font-bold text-[#1E1916]">
+            {selectedCategory === 'All' ? 'All Gift Hampers' : selectedCategory}
+          </h2>
+          <span className="text-xs font-sans text-[#6B6259]">
+            {products.length} {products.length === 1 ? 'Hamper available' : 'Hampers available'}
           </span>
         </div>
 
@@ -141,10 +127,10 @@ const Storefront = ({ onAddToCart, onViewDetails }) => {
             ))}
           </div>
         ) : products.length === 0 ? (
-          <div className="text-center py-20 rounded-3xl border border-slate-800/80 bg-slate-900/20">
-            <ShoppingBag className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-            <h3 className="text-lg font-serif font-bold text-slate-300">No hampers match your selection</h3>
-            <p className="text-xs text-slate-500 mt-1">Try another category or clear your search query.</p>
+          <div className="text-center py-16 rounded-md border border-[#E5DEC9] bg-[#FCFBF8]">
+            <ShoppingBag className="w-10 h-10 text-[#6B6259] mx-auto mb-3 stroke-[1.5]" />
+            <h3 className="text-lg font-serif font-bold text-[#1E1916]">No hampers found</h3>
+            <p className="text-xs text-[#6B6259] mt-1">Try selecting another collection or clearing your search.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">

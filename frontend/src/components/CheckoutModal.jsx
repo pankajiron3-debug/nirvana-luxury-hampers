@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { X, CheckCircle2, ShieldCheck, Truck, Sparkles, CreditCard, QrCode, Building2, MapPin, Phone, User, Mail } from 'lucide-react';
+import { X, CheckCircle2, Truck, CreditCard, MapPin, Phone, User, Mail } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { paymentApi } from '../api/client';
 
 const FREE_SHIPPING_THRESHOLD = 2999;
 const STANDARD_SHIPPING_FEE = 199;
@@ -28,6 +29,20 @@ const INDIAN_STATES = [
   'Jammu & Kashmir',
 ];
 
+const loadRazorpayScript = () => {
+  return new Promise((resolve) => {
+    if (window.Razorpay) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+};
+
 const CheckoutModal = ({ isOpen, onClose, items, onClearCart }) => {
   const [formData, setFormData] = useState({
     fullName: '',
@@ -38,7 +53,6 @@ const CheckoutModal = ({ isOpen, onClose, items, onClearCart }) => {
     state: 'Maharashtra',
     pinCode: '',
     giftNote: '',
-    paymentMethod: 'upi',
   });
 
   const [formErrors, setFormErrors] = useState({});
@@ -71,44 +85,128 @@ const CheckoutModal = ({ isOpen, onClose, items, onClearCart }) => {
     if (!formData.pinCode.trim()) {
       errors.pinCode = 'PIN Code is required';
     } else if (!/^[1-9][0-9]{5}$/.test(formData.pinCode.trim())) {
-      errors.pinCode = 'Please enter a valid 6-digit Indian PIN Code (e.g. 110001)';
+      errors.pinCode = 'Please enter a valid 6-digit Indian PIN Code';
     }
 
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
-  const handlePlaceOrder = (e) => {
+  const handlePlaceOrder = async (e) => {
     e.preventDefault();
     if (!validate()) {
-      toast.error('Please complete all delivery details correctly.');
+      toast.error('Please fill in all required delivery details.');
+      return;
+    }
+
+    if (items.length === 0) {
+      toast.error('Your cart is empty.');
       return;
     }
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      const orderId = `NLH-IN-${Math.floor(100000 + Math.random() * 900000)}`;
-      setConfirmedOrder({
-        orderId,
-        items: [...items],
-        subtotal,
-        shippingFee,
-        total,
-        shippingDetails: { ...formData },
-        date: new Date().toLocaleDateString('en-IN', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-        }),
-      });
+
+    try {
+      // 1. Ensure Razorpay SDK is ready
+      const isLoaded = await loadRazorpayScript();
+      if (!isLoaded && !window.Razorpay) {
+        toast.error('Razorpay SDK failed to load. Please check your internet connection.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // 2. Create Razorpay order on backend
+      const orderRes = await paymentApi.createOrder(total);
+
+      if (!orderRes || !orderRes.success) {
+        toast.error(orderRes?.message || 'Could not initiate payment session.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // 3. Configure Razorpay modal options
+      const options = {
+        key: orderRes.keyId || 'rzp_test_U10yTA9Fi9d9cf',
+        amount: orderRes.amount,
+        currency: orderRes.currency || 'INR',
+        name: 'Nirvana Luxury Hampers',
+        description: 'Handcrafted Celebrations & Festive Hampers',
+        order_id: orderRes.orderId,
+        prefill: {
+          name: formData.fullName,
+          email: formData.email,
+          contact: formData.phone,
+        },
+        theme: {
+          color: '#9E331E', // Sindoor Terracotta
+        },
+        modal: {
+          ondismiss: function () {
+            setIsSubmitting(false);
+            toast('Payment process was not completed.', { icon: 'ℹ️' });
+          },
+        },
+        handler: async function (response) {
+          // 4. Verify signature & record order in MongoDB
+          try {
+            setIsSubmitting(true);
+            const verifyRes = await paymentApi.verifyPayment({
+              razorpay_order_id: response.razorpay_order_id || orderRes.orderId,
+              razorpay_payment_id: response.razorpay_payment_id || `pay_mock_${Date.now()}`,
+              razorpay_signature: response.razorpay_signature || 'verified_test',
+              items,
+              shippingDetails: formData,
+              subtotal,
+              shippingFee,
+              total,
+            });
+
+            if (verifyRes && verifyRes.success) {
+              setConfirmedOrder(verifyRes.order || {
+                orderId: `NLH-IN-${Math.floor(100000 + Math.random() * 900000)}`,
+                items: [...items],
+                subtotal,
+                shippingFee,
+                total,
+                shippingDetails: { ...formData },
+                date: new Date().toLocaleDateString('en-IN', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                }),
+              });
+              setIsOrderPlaced(true);
+              onClearCart();
+              toast.success('Payment verified and order confirmed!');
+            } else {
+              toast.error(verifyRes?.message || 'Payment verification failed.');
+            }
+          } catch (verifyErr) {
+            console.error('Payment verification error:', verifyErr);
+            toast.error('Payment could not be verified. Please contact support.');
+          } finally {
+            setIsSubmitting(false);
+          }
+        },
+      };
+
+      // 4. Open Razorpay payment gateway
+      if (window.Razorpay) {
+        const razorpayInstance = new window.Razorpay(options);
+        razorpayInstance.on('payment.failed', function (failResponse) {
+          console.error('Payment failure:', failResponse.error);
+          toast.error(failResponse.error?.description || 'Payment was unsuccessful. Please try again.');
+          setIsSubmitting(false);
+        });
+        razorpayInstance.open();
+      } else {
+        throw new Error('Razorpay client unavailable.');
+      }
+    } catch (err) {
+      console.error('Error initiating checkout:', err);
+      toast.error(err.response?.data?.message || 'Error launching payment gateway.');
       setIsSubmitting(false);
-      setIsOrderPlaced(true);
-      onClearCart();
-      toast.success(`Luxury order ${orderId} reserved successfully!`, {
-        icon: '👑',
-        duration: 5000,
-      });
-    }, 900);
+    }
   };
 
   const handleModalClose = () => {
@@ -118,29 +216,24 @@ const CheckoutModal = ({ isOpen, onClose, items, onClearCart }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200">
-      <div className="relative w-full max-w-4xl rounded-3xl bg-gradient-to-b from-slate-900 via-slate-925 to-slate-950 border border-slate-800 shadow-2xl overflow-hidden my-6">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-150">
+      <div className="relative w-full max-w-4xl rounded-md bg-[#FCFBF8] border border-[#E5DEC9] shadow-modal overflow-hidden my-6">
         
         {/* Header */}
-        <div className="px-6 py-5 border-b border-slate-800 bg-slate-900/60 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="p-2.5 rounded-xl bg-gold-500/10 text-gold-400 border border-gold-500/30">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="font-serif text-lg sm:text-xl font-bold text-white tracking-wide">
-                {isOrderPlaced ? 'Bespoke Order Confirmed' : 'Pan-India Bespoke Delivery & Checkout'}
-              </h2>
-              <p className="text-xs text-slate-400">
-                {isOrderPlaced
-                  ? 'Your luxury curated hampers are being prepared for dispatch'
-                  : 'White-glove priority courier with temperature-controlled transit across India'}
-              </p>
-            </div>
+        <div className="px-6 py-5 border-b border-[#E5DEC9] bg-[#F7F3EB]/70 flex items-center justify-between">
+          <div>
+            <h2 className="font-serif text-xl sm:text-2xl font-bold text-[#1E1916]">
+              {isOrderPlaced ? 'Order Confirmed' : 'Delivery & Payment'}
+            </h2>
+            <p className="text-xs text-[#6B6259] mt-0.5">
+              {isOrderPlaced
+                ? 'Carefully packed and dispatched across India.'
+                : 'Complete recipient details to proceed with Razorpay test checkout.'}
+            </p>
           </div>
           <button
             onClick={handleModalClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-2 rounded-md text-[#6B6259] hover:text-[#1E1916] hover:bg-[#E5DEC9]/50 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -149,64 +242,64 @@ const CheckoutModal = ({ isOpen, onClose, items, onClearCart }) => {
         {/* Modal Content */}
         {isOrderPlaced && confirmedOrder ? (
           /* Order Confirmation View */
-          <div className="p-6 sm:p-10 space-y-8 animate-in zoom-in-95 duration-300">
+          <div className="p-6 sm:p-10 space-y-8 animate-in zoom-in-98 duration-200">
             <div className="text-center space-y-3">
-              <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mx-auto text-emerald-400 shadow-lg shadow-emerald-500/10">
-                <CheckCircle2 className="w-9 h-9" />
+              <div className="w-14 h-14 rounded-full bg-[#EBF2EB] border border-[#C3D6C2] flex items-center justify-center mx-auto text-[#3D5A3C]">
+                <CheckCircle2 className="w-8 h-8" />
               </div>
-              <h3 className="text-2xl font-serif font-bold text-white">
-                Thank You, {confirmedOrder.shippingDetails.fullName}!
+              <h3 className="text-2xl sm:text-3xl font-serif font-bold text-[#1E1916]">
+                Thank You, {confirmedOrder.shippingDetails?.fullName}!
               </h3>
-              <p className="text-sm text-slate-300 max-w-lg mx-auto leading-relaxed">
-                Your luxury hamper order has been placed successfully. A dedicated gifting concierge has been assigned to oversee white-glove packaging.
+              <p className="text-sm text-[#6B6259] max-w-lg mx-auto leading-relaxed">
+                Your hamper order has been placed successfully. It is being carefully packaged with festive care for safe delivery.
               </p>
-              <div className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-gold-500/10 border border-gold-500/30 text-gold-400 font-mono text-xs font-semibold">
+              <div className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-sm bg-[#F7F3EB] border border-[#E5DEC9] text-[#1E1916] font-sans text-xs font-semibold">
                 <span>Order Reference: {confirmedOrder.orderId}</span>
               </div>
             </div>
 
-            {/* Delivery & Financial Summary Receipt */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-950/80 rounded-2xl border border-slate-800 p-6 text-xs">
+            {/* Receipt Summary */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-[#F7F3EB] rounded-md border border-[#E5DEC9] p-6 text-xs">
               <div className="space-y-3">
-                <h4 className="font-serif text-sm font-bold text-white uppercase tracking-wider flex items-center space-x-2">
-                  <MapPin className="w-4 h-4 text-gold-400" />
-                  <span>Dispatch Address (India)</span>
+                <h4 className="font-serif text-sm font-bold text-[#1E1916] uppercase tracking-wider flex items-center space-x-2">
+                  <MapPin className="w-4 h-4 text-[#9E331E]" />
+                  <span>Delivery Address</span>
                 </h4>
-                <div className="space-y-1 text-slate-300 leading-relaxed font-sans">
-                  <p className="font-semibold text-white">{confirmedOrder.shippingDetails.fullName}</p>
-                  <p>{confirmedOrder.shippingDetails.address}</p>
+                <div className="space-y-1 text-[#6B6259] leading-relaxed font-sans">
+                  <p className="font-semibold text-[#1E1916]">{confirmedOrder.shippingDetails?.fullName}</p>
+                  <p>{confirmedOrder.shippingDetails?.address}</p>
                   <p>
-                    {confirmedOrder.shippingDetails.city}, {confirmedOrder.shippingDetails.state} -{' '}
-                    <strong className="text-gold-300 font-mono">PIN Code: {confirmedOrder.shippingDetails.pinCode}</strong>
+                    {confirmedOrder.shippingDetails?.city}, {confirmedOrder.shippingDetails?.state} -{' '}
+                    <strong className="text-[#1E1916]">PIN: {confirmedOrder.shippingDetails?.pinCode}</strong>
                   </p>
-                  <p className="text-slate-400 font-mono">Phone: {confirmedOrder.shippingDetails.phone}</p>
-                  <p className="text-slate-400 font-mono">Email: {confirmedOrder.shippingDetails.email}</p>
+                  <p className="text-[#6B6259]">Phone: {confirmedOrder.shippingDetails?.phone}</p>
+                  <p className="text-[#6B6259]">Email: {confirmedOrder.shippingDetails?.email}</p>
                 </div>
               </div>
 
-              <div className="space-y-3 border-t md:border-t-0 md:border-l border-slate-800 md:pl-6 pt-4 md:pt-0">
-                <h4 className="font-serif text-sm font-bold text-white uppercase tracking-wider flex items-center space-x-2">
-                  <Truck className="w-4 h-4 text-gold-400" />
+              <div className="space-y-3 border-t md:border-t-0 md:border-l border-[#E5DEC9] md:pl-6 pt-4 md:pt-0">
+                <h4 className="font-serif text-sm font-bold text-[#1E1916] uppercase tracking-wider flex items-center space-x-2">
+                  <Truck className="w-4 h-4 text-[#9E331E]" />
                   <span>Order Summary</span>
                 </h4>
-                <div className="space-y-1.5 text-slate-300 font-mono">
+                <div className="space-y-1.5 text-[#6B6259] font-sans">
                   <div className="flex justify-between">
                     <span>Subtotal:</span>
-                    <span>₹{confirmedOrder.subtotal.toLocaleString('en-IN')}</span>
+                    <span className="font-medium text-[#1E1916]">₹{confirmedOrder.subtotal?.toLocaleString('en-IN')}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Pan-India Shipping:</span>
-                    <span className={confirmedOrder.shippingFee === 0 ? 'text-emerald-400' : ''}>
+                    <span>Pan-India Delivery:</span>
+                    <span className={confirmedOrder.shippingFee === 0 ? 'text-[#3D5A3C] font-semibold' : 'text-[#1E1916]'}>
                       {confirmedOrder.shippingFee === 0 ? 'FREE' : `₹${confirmedOrder.shippingFee}`}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Taxes:</span>
-                    <span>All GST Included</span>
+                    <span>Payment Status:</span>
+                    <span className="text-[#3D5A3C] font-semibold">Paid via Razorpay (Test Mode)</span>
                   </div>
-                  <div className="pt-2 border-t border-slate-800 flex justify-between font-bold text-sm text-gold-300">
-                    <span>Total Paid (INR):</span>
-                    <span>₹{confirmedOrder.total.toLocaleString('en-IN')}</span>
+                  <div className="pt-2 border-t border-[#E5DEC9] flex justify-between font-bold text-sm text-[#1E1916]">
+                    <span>Total Paid:</span>
+                    <span className="text-[#9E331E] font-serif text-lg">₹{confirmedOrder.total?.toLocaleString('en-IN')}</span>
                   </div>
                 </div>
               </div>
@@ -215,7 +308,7 @@ const CheckoutModal = ({ isOpen, onClose, items, onClearCart }) => {
             <div className="flex justify-center pt-2">
               <button
                 onClick={handleModalClose}
-                className="px-8 py-3 rounded-xl bg-gold-500 hover:bg-gold-400 text-slate-950 font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-gold-500/20 active:scale-95"
+                className="px-8 py-2.5 rounded-md bg-[#9E331E] hover:bg-[#842917] text-[#FCFBF8] font-medium text-xs uppercase tracking-wider transition-colors shadow-xs"
               >
                 Return to Storefront
               </button>
@@ -226,348 +319,284 @@ const CheckoutModal = ({ isOpen, onClose, items, onClearCart }) => {
           <form onSubmit={handlePlaceOrder} className="p-6 sm:p-8">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
               
-              {/* Left Column: Indian Shipping Details Form */}
+              {/* Left Column: Delivery Form */}
               <div className="lg:col-span-7 space-y-5">
-                <div className="flex items-center space-x-2 text-xs font-semibold uppercase tracking-wider text-gold-400 pb-2 border-b border-slate-800">
+                <div className="flex items-center space-x-2 text-xs font-semibold uppercase tracking-wider text-[#9E331E] pb-2 border-b border-[#E5DEC9]">
                   <MapPin className="w-4 h-4" />
-                  <span>1. Indian Shipping Destination</span>
+                  <span>1. Delivery Details</span>
                 </div>
 
                 {/* Full Name */}
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                    Recipient Full Name <span className="text-rose-400">*</span>
+                  <label className="block text-xs font-medium uppercase tracking-wider text-[#1E1916] mb-1.5">
+                    Recipient Full Name <span className="text-[#9E331E]">*</span>
                   </label>
                   <div className="relative">
-                    <User className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+                    <User className="w-4 h-4 text-[#6B6259] absolute left-3 top-3" />
                     <input
                       type="text"
-                      placeholder="e.g. Arjun Singhania"
+                      placeholder="e.g. Aditi Sharma"
                       value={formData.fullName}
                       onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                      className={`w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950 border text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-gold-500/50 ${
-                        formErrors.fullName ? 'border-rose-500' : 'border-slate-800'
+                      className={`w-full pl-9 pr-3.5 py-2 rounded-md bg-[#F7F3EB] border text-xs text-[#1E1916] placeholder-[#A59D94] focus:outline-none focus:border-[#9E331E] transition-colors ${
+                        formErrors.fullName ? 'border-[#9E331E]' : 'border-[#E5DEC9]'
                       }`}
                     />
                   </div>
                   {formErrors.fullName && (
-                    <p className="text-rose-400 text-xs mt-1">{formErrors.fullName}</p>
+                    <p className="text-[#9E331E] text-xs mt-1">{formErrors.fullName}</p>
                   )}
                 </div>
 
                 {/* Phone & Email */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                      Phone Number <span className="text-rose-400">*</span>
+                    <label className="block text-xs font-medium uppercase tracking-wider text-[#1E1916] mb-1.5">
+                      Phone Number <span className="text-[#9E331E]">*</span>
                     </label>
                     <div className="relative">
-                      <Phone className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+                      <Phone className="w-4 h-4 text-[#6B6259] absolute left-3 top-3" />
                       <input
                         type="tel"
-                        placeholder="+91 98765 43210"
+                        placeholder="9876543210"
                         value={formData.phone}
                         onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                        className={`w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950 border text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-gold-500/50 ${
-                          formErrors.phone ? 'border-rose-500' : 'border-slate-800'
+                        className={`w-full pl-9 pr-3.5 py-2 rounded-md bg-[#F7F3EB] border text-xs text-[#1E1916] placeholder-[#A59D94] focus:outline-none focus:border-[#9E331E] transition-colors ${
+                          formErrors.phone ? 'border-[#9E331E]' : 'border-[#E5DEC9]'
                         }`}
                       />
                     </div>
                     {formErrors.phone && (
-                      <p className="text-rose-400 text-xs mt-1">{formErrors.phone}</p>
+                      <p className="text-[#9E331E] text-xs mt-1">{formErrors.phone}</p>
                     )}
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                      Email Address <span className="text-rose-400">*</span>
+                    <label className="block text-xs font-medium uppercase tracking-wider text-[#1E1916] mb-1.5">
+                      Email Address <span className="text-[#9E331E]">*</span>
                     </label>
                     <div className="relative">
-                      <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
+                      <Mail className="w-4 h-4 text-[#6B6259] absolute left-3 top-3" />
                       <input
                         type="email"
-                        placeholder="arjun@luxury.in"
+                        placeholder="aditi@example.com"
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        className={`w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950 border text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-gold-500/50 ${
-                          formErrors.email ? 'border-rose-500' : 'border-slate-800'
+                        className={`w-full pl-9 pr-3.5 py-2 rounded-md bg-[#F7F3EB] border text-xs text-[#1E1916] placeholder-[#A59D94] focus:outline-none focus:border-[#9E331E] transition-colors ${
+                          formErrors.email ? 'border-[#9E331E]' : 'border-[#E5DEC9]'
                         }`}
                       />
                     </div>
                     {formErrors.email && (
-                      <p className="text-rose-400 text-xs mt-1">{formErrors.email}</p>
+                      <p className="text-[#9E331E] text-xs mt-1">{formErrors.email}</p>
                     )}
                   </div>
                 </div>
 
-                {/* Street Address */}
+                {/* Delivery Address */}
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                    Delivery Address (Flat / House / Street) <span className="text-rose-400">*</span>
+                  <label className="block text-xs font-medium uppercase tracking-wider text-[#1E1916] mb-1.5">
+                    Delivery Address (House / Street / Area) <span className="text-[#9E331E]">*</span>
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. Bungalow 7, Malabar Hill, B.G. Kher Marg"
+                    placeholder="e.g. 14B, Heritage Lane, Indiranagar"
                     value={formData.address}
                     onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                    className={`w-full px-4 py-2.5 rounded-xl bg-slate-950 border text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-gold-500/50 ${
-                      formErrors.address ? 'border-rose-500' : 'border-slate-800'
+                    className={`w-full px-3.5 py-2 rounded-md bg-[#F7F3EB] border text-xs text-[#1E1916] placeholder-[#A59D94] focus:outline-none focus:border-[#9E331E] transition-colors ${
+                      formErrors.address ? 'border-[#9E331E]' : 'border-[#E5DEC9]'
                     }`}
                   />
                   {formErrors.address && (
-                    <p className="text-rose-400 text-xs mt-1">{formErrors.address}</p>
+                    <p className="text-[#9E331E] text-xs mt-1">{formErrors.address}</p>
                   )}
                 </div>
 
-                {/* City, State, PIN Code */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {/* City */}
+                {/* City, State, PIN */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                      City <span className="text-rose-400">*</span>
+                    <label className="block text-xs font-medium uppercase tracking-wider text-[#1E1916] mb-1.5">
+                      City <span className="text-[#9E331E]">*</span>
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. New Delhi, Mumbai, Patna"
+                      placeholder="e.g. Bengaluru"
                       value={formData.city}
                       onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                      className={`w-full px-4 py-2.5 rounded-xl bg-slate-950 border text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-gold-500/50 ${
-                        formErrors.city ? 'border-rose-500' : 'border-slate-800'
+                      className={`w-full px-3 py-2 rounded-md bg-[#F7F3EB] border text-xs text-[#1E1916] placeholder-[#A59D94] focus:outline-none focus:border-[#9E331E] transition-colors ${
+                        formErrors.city ? 'border-[#9E331E]' : 'border-[#E5DEC9]'
                       }`}
                     />
                     {formErrors.city && (
-                      <p className="text-rose-400 text-xs mt-1">{formErrors.city}</p>
+                      <p className="text-[#9E331E] text-xs mt-1">{formErrors.city}</p>
                     )}
                   </div>
 
-                  {/* State */}
                   <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                      State <span className="text-rose-400">*</span>
+                    <label className="block text-xs font-medium uppercase tracking-wider text-[#1E1916] mb-1.5">
+                      State <span className="text-[#9E331E]">*</span>
                     </label>
                     <select
                       value={formData.state}
                       onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                      className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-gold-500/50"
+                      className="w-full px-2.5 py-2 rounded-md bg-[#F7F3EB] border border-[#E5DEC9] text-xs text-[#1E1916] focus:outline-none focus:border-[#9E331E] transition-colors"
                     >
                       {INDIAN_STATES.map((st) => (
-                        <option key={st} value={st} className="bg-slate-900 text-white">
+                        <option key={st} value={st}>
                           {st}
                         </option>
                       ))}
                     </select>
                   </div>
 
-                  {/* PIN Code */}
                   <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                      PIN Code <span className="text-rose-400">*</span>
+                    <label className="block text-xs font-medium uppercase tracking-wider text-[#1E1916] mb-1.5">
+                      PIN Code <span className="text-[#9E331E]">*</span>
                     </label>
                     <input
                       type="text"
                       maxLength="6"
-                      placeholder="e.g. 110001"
+                      placeholder="560038"
                       value={formData.pinCode}
                       onChange={(e) => setFormData({ ...formData, pinCode: e.target.value })}
-                      className={`w-full px-4 py-2.5 rounded-xl bg-slate-950 border text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-gold-500/50 ${
-                        formErrors.pinCode ? 'border-rose-500' : 'border-slate-800'
+                      className={`w-full px-3 py-2 rounded-md bg-[#F7F3EB] border text-xs text-[#1E1916] placeholder-[#A59D94] focus:outline-none focus:border-[#9E331E] transition-colors ${
+                        formErrors.pinCode ? 'border-[#9E331E]' : 'border-[#E5DEC9]'
                       }`}
                     />
                     {formErrors.pinCode && (
-                      <p className="text-rose-400 text-xs mt-1">{formErrors.pinCode}</p>
+                      <p className="text-[#9E331E] text-xs mt-1">{formErrors.pinCode}</p>
                     )}
                   </div>
                 </div>
 
-                {/* Personalized Greeting Card Note */}
+                {/* Gift Note */}
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                    Personalized Greeting Note (Complimentary Gold-Foil Calligraphy)
+                  <label className="block text-xs font-medium uppercase tracking-wider text-[#1E1916] mb-1.5">
+                    Personal Greeting Note (Included with hamper)
                   </label>
                   <textarea
                     rows="2"
-                    placeholder="Wishing you elegance, prosperity, and joyous celebrations..."
+                    placeholder="Add a handwritten message for the recipient..."
                     value={formData.giftNote}
                     onChange={(e) => setFormData({ ...formData, giftNote: e.target.value })}
-                    className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-gold-500/50 resize-none"
+                    className="w-full px-3.5 py-2 rounded-md bg-[#F7F3EB] border border-[#E5DEC9] text-xs text-[#1E1916] placeholder-[#A59D94] focus:outline-none focus:border-[#9E331E] transition-colors resize-none"
                   ></textarea>
                 </div>
 
-                {/* Payment Options (Indian Gateways) */}
+                {/* Payment Notice */}
                 <div className="pt-2">
-                  <div className="flex items-center space-x-2 text-xs font-semibold uppercase tracking-wider text-gold-400 pb-2 border-b border-slate-800 mb-3">
+                  <div className="flex items-center space-x-2 text-xs font-semibold uppercase tracking-wider text-[#9E331E] pb-2 border-b border-[#E5DEC9] mb-3">
                     <CreditCard className="w-4 h-4" />
-                    <span>2. Indian Payment Preference</span>
+                    <span>2. Razorpay Secure Payment</span>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <label
-                      className={`p-3 rounded-xl border flex items-center space-x-2.5 cursor-pointer transition-all ${
-                        formData.paymentMethod === 'upi'
-                          ? 'bg-gold-500/10 border-gold-500/60 text-white'
-                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="paymentMethod"
-                        value="upi"
-                        checked={formData.paymentMethod === 'upi'}
-                        onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
-                        className="text-gold-500 focus:ring-gold-500"
-                      />
-                      <QrCode className="w-4 h-4 text-gold-400 shrink-0" />
-                      <div className="text-xs">
-                        <span className="font-semibold block text-slate-200">UPI / QR</span>
-                        <span className="text-[10px] text-slate-500">GPay, PhonePe, Paytm</span>
-                      </div>
-                    </label>
-
-                    <label
-                      className={`p-3 rounded-xl border flex items-center space-x-2.5 cursor-pointer transition-all ${
-                        formData.paymentMethod === 'netbanking'
-                          ? 'bg-gold-500/10 border-gold-500/60 text-white'
-                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="paymentMethod"
-                        value="netbanking"
-                        checked={formData.paymentMethod === 'netbanking'}
-                        onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
-                        className="text-gold-500 focus:ring-gold-500"
-                      />
-                      <Building2 className="w-4 h-4 text-gold-400 shrink-0" />
-                      <div className="text-xs">
-                        <span className="font-semibold block text-slate-200">Net Banking</span>
-                        <span className="text-[10px] text-slate-500">HDFC, ICICI, SBI</span>
-                      </div>
-                    </label>
-
-                    <label
-                      className={`p-3 rounded-xl border flex items-center space-x-2.5 cursor-pointer transition-all ${
-                        formData.paymentMethod === 'concierge'
-                          ? 'bg-gold-500/10 border-gold-500/60 text-white'
-                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="paymentMethod"
-                        value="concierge"
-                        checked={formData.paymentMethod === 'concierge'}
-                        onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
-                        className="text-gold-500 focus:ring-gold-500"
-                      />
-                      <Sparkles className="w-4 h-4 text-gold-400 shrink-0" />
-                      <div className="text-xs">
-                        <span className="font-semibold block text-slate-200">Concierge POD</span>
-                        <span className="text-[10px] text-slate-500">Pay upon Delivery</span>
-                      </div>
-                    </label>
+                  <div className="p-3.5 rounded-md bg-[#F7F3EB] border border-[#E5DEC9] flex items-center space-x-3">
+                    <div className="w-8 h-8 rounded-sm bg-[#9E331E] text-white flex items-center justify-center font-bold text-xs shrink-0">
+                      ₹
+                    </div>
+                    <div className="text-xs">
+                      <p className="font-semibold text-[#1E1916]">Razorpay Payment Gateway (Test Mode)</p>
+                      <p className="text-[#6B6259]">Supports UPI, NetBanking, Debit/Credit Cards, and Wallets.</p>
+                    </div>
                   </div>
                 </div>
 
               </div>
 
-              {/* Right Column: Order Summary & Placement */}
-              <div className="lg:col-span-5 bg-slate-950/70 rounded-2xl border border-slate-800 p-6 flex flex-col justify-between space-y-6">
+              {/* Right Column: Order Summary */}
+              <div className="lg:col-span-5 bg-[#F7F3EB] rounded-md border border-[#E5DEC9] p-6 flex flex-col justify-between space-y-6">
                 <div>
-                  <h3 className="font-serif text-base font-bold text-white uppercase tracking-wider pb-3 border-b border-slate-800">
+                  <h3 className="font-serif text-base font-bold text-[#1E1916] uppercase tracking-wider pb-3 border-b border-[#E5DEC9]">
                     Order Summary ({items.length} {items.length === 1 ? 'Hamper' : 'Hampers'})
                   </h3>
 
-                  {/* Selected Items List */}
-                  <div className="max-h-56 overflow-y-auto divide-y divide-slate-800/80 my-3 pr-1">
+                  {/* Selected Items */}
+                  <div className="max-h-52 overflow-y-auto divide-y divide-[#E5DEC9] my-3 pr-1">
                     {items.map(({ product, quantity }) => (
                       <div key={product._id} className="py-2.5 flex items-center justify-between text-xs">
                         <div className="flex items-center space-x-3 truncate">
                           <img
                             src={product.imageUrl}
                             alt={product.name}
-                            className="w-10 h-10 rounded-lg object-cover bg-slate-800 shrink-0"
+                            className="w-10 h-10 rounded-sm object-cover bg-white border border-[#E5DEC9] shrink-0"
                             onError={(e) => {
                               e.target.src = 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?auto=format&fit=crop&w=150&q=80';
                             }}
                           />
                           <div className="truncate">
-                            <span className="text-slate-200 font-medium block truncate">
+                            <span className="text-[#1E1916] font-medium block truncate">
                               {product.name}
                             </span>
-                            <span className="text-[10px] text-slate-500 font-mono">
+                            <span className="text-[10px] text-[#6B6259]">
                               Qty: {quantity} · ₹{Number(product.price).toLocaleString('en-IN')}
                             </span>
                           </div>
                         </div>
-                        <span className="font-mono font-semibold text-white ml-2 shrink-0">
+                        <span className="font-medium text-[#1E1916] ml-2 shrink-0">
                           ₹{(product.price * quantity).toLocaleString('en-IN')}
                         </span>
                       </div>
                     ))}
                   </div>
 
-                  {/* Pricing Breakdown in INR */}
-                  <div className="space-y-2 pt-3 border-t border-slate-800 text-xs">
-                    <div className="flex justify-between text-slate-400">
+                  {/* Pricing Breakdown */}
+                  <div className="space-y-2 pt-3 border-t border-[#E5DEC9] text-xs">
+                    <div className="flex justify-between text-[#6B6259]">
                       <span>Subtotal</span>
-                      <span className="text-slate-200 font-mono font-semibold">
+                      <span className="text-[#1E1916] font-medium">
                         ₹{subtotal.toLocaleString('en-IN')}
                       </span>
                     </div>
 
-                    <div className="flex justify-between text-slate-400 items-center">
-                      <span>Pan-India Luxury Shipping</span>
-                      <span className={isFreeShipping ? 'text-emerald-400 font-semibold' : 'text-slate-200 font-mono'}>
+                    <div className="flex justify-between text-[#6B6259] items-center">
+                      <span>Delivery Fee</span>
+                      <span className={isFreeShipping ? 'text-[#3D5A3C] font-semibold' : 'text-[#1E1916]'}>
                         {isFreeShipping ? 'FREE' : `₹${STANDARD_SHIPPING_FEE}`}
                       </span>
                     </div>
 
-                    <div className="p-2 rounded-lg bg-gold-500/5 border border-gold-500/20 text-[11px] text-slate-300">
+                    <div className="p-2 rounded-sm bg-[#FCFBF8] border border-[#E5DEC9] text-[11px] text-[#6B6259]">
                       {isFreeShipping ? (
-                        <p className="text-emerald-400">
-                          ✨ <strong>Complimentary Shipping Applied:</strong> Order value is ₹{subtotal.toLocaleString('en-IN')} (Free above ₹{FREE_SHIPPING_THRESHOLD.toLocaleString('en-IN')})
+                        <p className="text-[#3D5A3C]">
+                          <strong>Complimentary delivery applied</strong> for order value above ₹{FREE_SHIPPING_THRESHOLD.toLocaleString('en-IN')}.
                         </p>
                       ) : (
-                        <p className="text-slate-400">
-                          Standard Shipping: <strong>₹{STANDARD_SHIPPING_FEE}</strong> · Free on orders above <strong>₹{FREE_SHIPPING_THRESHOLD.toLocaleString('en-IN')}</strong>
+                        <p>
+                          Standard delivery <strong>₹{STANDARD_SHIPPING_FEE}</strong> · Free on orders above <strong>₹{FREE_SHIPPING_THRESHOLD.toLocaleString('en-IN')}</strong>.
                         </p>
                       )}
                     </div>
 
-                    <div className="flex justify-between text-slate-400">
-                      <span>Taxes & Duties</span>
-                      <span className="text-slate-400">Included (All Indian GST)</span>
+                    <div className="flex justify-between text-[#6B6259]">
+                      <span>Taxes</span>
+                      <span>Included (All GST)</span>
                     </div>
 
-                    <div className="pt-3 border-t border-slate-800 flex justify-between items-baseline">
-                      <span className="text-sm font-serif font-bold text-white uppercase tracking-wider">
-                        Total Amount (₹ INR)
+                    <div className="pt-3 border-t border-[#E5DEC9] flex justify-between items-baseline">
+                      <span className="text-sm font-serif font-bold text-[#1E1916] uppercase tracking-wider">
+                        Total Amount
                       </span>
-                      <span className="text-2xl font-serif font-bold text-gold-300">
+                      <span className="text-2xl font-serif font-bold text-[#9E331E]">
                         ₹{total.toLocaleString('en-IN')}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Submit Order Button */}
-                <div className="space-y-3 pt-4 border-t border-slate-800">
+                {/* Place Order Button */}
+                <div className="space-y-2 pt-4 border-t border-[#E5DEC9]">
                   <button
                     type="submit"
                     disabled={isSubmitting || items.length === 0}
-                    className="w-full py-4 rounded-xl bg-gold-500 hover:bg-gold-400 text-slate-950 font-bold text-sm tracking-wider uppercase transition-all shadow-xl shadow-gold-500/20 active:scale-98 disabled:opacity-50 flex items-center justify-center space-x-2"
+                    className="w-full py-3 rounded-md bg-[#9E331E] hover:bg-[#842917] text-[#FCFBF8] font-medium text-xs tracking-wider uppercase transition-colors shadow-xs active:scale-98 disabled:opacity-50 flex items-center justify-center space-x-2"
                   >
                     {isSubmitting ? (
-                      <span className="w-5 h-5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin"></span>
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
                     ) : (
-                      <>
-                        <ShieldCheck className="w-4 h-4 stroke-[2.5]" />
-                        <span>Place Luxury Order · ₹{total.toLocaleString('en-IN')}</span>
-                      </>
+                      <span>Place Order · ₹{total.toLocaleString('en-IN')}</span>
                     )}
                   </button>
-                  <p className="text-[11px] text-center text-slate-500">
-                    Protected by 256-bit bank-grade encryption · Pan-India White Glove Guarantee
+                  <p className="text-[11px] text-center text-[#8E857C]">
+                    Carefully packed and dispatched across India
                   </p>
                 </div>
 

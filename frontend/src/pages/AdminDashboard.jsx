@@ -5,10 +5,8 @@ import {
   AlertOctagon,
   CircleDollarSign,
   Search,
-  Filter,
   RefreshCw,
   Plus,
-  SlidersHorizontal,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { productApi } from '../api/client';
@@ -71,7 +69,7 @@ const AdminDashboard = ({ isModalOpen, setIsModalOpen }) => {
       }
     } catch (err) {
       console.error(err);
-      toast.error('Failed to sync catalogue data. Check API gateway status.');
+      toast.error('Failed to load inventory data. Please try again.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -101,13 +99,13 @@ const AdminDashboard = ({ isModalOpen, setIsModalOpen }) => {
         toast.success(`Updated "${res.product?.name || 'Hamper'}" successfully!`);
       } else {
         const res = await productApi.createProduct(formData);
-        toast.success(`Curated "${res.product?.name || 'Hamper'}" successfully!`);
+        toast.success(`"${res.product?.name || 'Hamper'}" added to catalogue.`);
       }
       setIsModalOpen(false);
       setEditingProduct(null);
       fetchDashboardData(true);
     } catch (err) {
-      const msg = err.response?.data?.message || 'Error processing request.';
+      const msg = err.response?.data?.message || 'Error saving hamper.';
       toast.error(msg);
     } finally {
       setActionLoading(false);
@@ -120,11 +118,11 @@ const AdminDashboard = ({ isModalOpen, setIsModalOpen }) => {
     setActionLoading(true);
     try {
       await productApi.deleteProduct(deletingProduct._id);
-      toast.success('Hamper permanently removed from catalogue.');
+      toast.success('Hamper removed from catalogue.');
       setDeletingProduct(null);
       fetchDashboardData(true);
     } catch (err) {
-      const msg = err.response?.data?.message || 'Failed to delete hamper.';
+      const msg = err.response?.data?.message || 'Failed to remove hamper.';
       toast.error(msg);
     } finally {
       setActionLoading(false);
@@ -132,35 +130,35 @@ const AdminDashboard = ({ isModalOpen, setIsModalOpen }) => {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-300">
+    <div className="space-y-8 animate-in fade-in duration-200">
       
       {/* Page Title & Controls */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-[#E5DEC9]">
         <div>
-          <h1 className="text-3xl font-serif font-bold text-white tracking-tight">
-            Inventory & Asset Intelligence
+          <h1 className="text-3xl font-serif font-bold text-[#1E1916] tracking-tight">
+            Store Inventory
           </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Real-time pipeline analytics, stock levels, and luxury valuation.
+          <p className="text-sm text-[#6B6259] mt-1 font-normal">
+            Manage hamper stock, pricing, and catalogue availability.
           </p>
         </div>
         <div className="flex items-center space-x-3">
           <button
             onClick={() => fetchDashboardData(true)}
             disabled={refreshing}
-            className="flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:border-slate-700 text-xs font-semibold tracking-wide transition-all"
+            className="flex items-center space-x-2 px-3.5 py-2 rounded-md bg-[#FCFBF8] border border-[#E5DEC9] text-[#6B6259] hover:text-[#1E1916] text-xs font-medium tracking-wide transition-colors"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-gold-400' : ''}`} />
-            <span>{refreshing ? 'Syncing...' : 'Sync Pipeline'}</span>
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-[#9E331E]' : ''}`} />
+            <span>{refreshing ? 'Refreshing...' : 'Refresh Stock'}</span>
           </button>
           <button
             onClick={() => {
               setEditingProduct(null);
               setIsModalOpen(true);
             }}
-            className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-gold-500 hover:bg-gold-400 text-slate-950 text-xs font-bold tracking-wider uppercase transition-all shadow-lg shadow-gold-500/20 active:scale-95"
+            className="flex items-center space-x-2 px-4 py-2 rounded-md bg-[#9E331E] hover:bg-[#842917] text-[#FCFBF8] text-xs font-semibold tracking-wider uppercase transition-colors shadow-xs active:scale-98"
           >
-            <Plus className="w-4 h-4 stroke-[3]" />
+            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
             <span>New Hamper</span>
           </button>
         </div>
@@ -178,54 +176,54 @@ const AdminDashboard = ({ isModalOpen, setIsModalOpen }) => {
         ) : (
           <>
             <StatCard
-              title="Total Catalog Hampers"
+              title="Total Hampers"
               value={analytics?.totalProducts || products.length}
-              subtitle="Active SKUs in catalogue"
+              subtitle="Active hampers in catalogue"
               icon={Boxes}
-              trend="+12% this month"
-              colorScheme="gold"
+              trend="Catalogue"
+              colorScheme="terracotta"
             />
             <StatCard
-              title="Total Inventory Value"
+              title="Total Stock Value"
               value={`₹${(analytics?.totalInventoryValue || 0).toLocaleString('en-IN')}`}
-              subtitle="Calculated at wholesale asset value"
+              subtitle="Current retail inventory value"
               icon={CircleDollarSign}
-              trend="Optimized"
-              colorScheme="emerald"
+              trend="In Stock"
+              colorScheme="olive"
             />
             <StatCard
-              title="Out of Stock Hampers"
+              title="Out of Stock"
               value={analytics?.outOfStockCount || 0}
-              subtitle="Requires immediate procurement"
+              subtitle="Awaiting restocking"
               icon={AlertOctagon}
-              trend={analytics?.outOfStockCount > 0 ? 'Action Needed' : 'Good'}
-              colorScheme="rose"
+              trend={analytics?.outOfStockCount > 0 ? 'Restock Needed' : 'All Available'}
+              colorScheme="taupe"
             />
             <StatCard
-              title="Average Hamper Value"
+              title="Average Hamper Price"
               value={`₹${Math.round(analytics?.averageProductPrice || 0).toLocaleString('en-IN')}`}
-              subtitle="Mean luxury customer basket"
+              subtitle="Average hamper price"
               icon={PackageCheck}
-              trend="Premium Tier"
-              colorScheme="blue"
+              trend="Catalogue Avg"
+              colorScheme="neutral"
             />
           </>
         )}
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-md space-y-3">
+      <div className="p-4 rounded-md bg-[#FCFBF8] border border-[#E5DEC9] shadow-xs">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
           
           {/* Search Box */}
           <div className="md:col-span-5 relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+            <Search className="w-4 h-4 text-[#6B6259] absolute left-3.5 top-3" />
             <input
               type="text"
-              placeholder="Search by Hamper Title, SKU, or Description..."
+              placeholder="Search by hamper title or SKU..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-gold-500/50"
+              className="w-full pl-10 pr-4 py-2 rounded-md bg-[#F7F3EB] border border-[#E5DEC9] text-xs text-[#1E1916] placeholder-[#A59D94] focus:outline-none focus:border-[#9E331E] transition-colors"
             />
           </div>
 
@@ -234,11 +232,11 @@ const AdminDashboard = ({ isModalOpen, setIsModalOpen }) => {
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-gold-500/50"
+              className="w-full px-3 py-2 rounded-md bg-[#F7F3EB] border border-[#E5DEC9] text-xs text-[#1E1916] focus:outline-none focus:border-[#9E331E] transition-colors"
             >
               {CATEGORIES.map((cat) => (
                 <option key={cat} value={cat}>
-                  {cat === 'All' ? 'All Luxury Categories' : cat}
+                  {cat === 'All' ? 'All Collections' : cat}
                 </option>
               ))}
             </select>
@@ -249,7 +247,7 @@ const AdminDashboard = ({ isModalOpen, setIsModalOpen }) => {
             <select
               value={stockStatus}
               onChange={(e) => setStockStatus(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-gold-500/50"
+              className="w-full px-3 py-2 rounded-md bg-[#F7F3EB] border border-[#E5DEC9] text-xs text-[#1E1916] focus:outline-none focus:border-[#9E331E] transition-colors"
             >
               <option value="all">All Inventory</option>
               <option value="inStock">In Stock Only</option>
@@ -262,12 +260,12 @@ const AdminDashboard = ({ isModalOpen, setIsModalOpen }) => {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-gold-500/50"
+              className="w-full px-3 py-2 rounded-md bg-[#F7F3EB] border border-[#E5DEC9] text-xs text-[#1E1916] focus:outline-none focus:border-[#9E331E] transition-colors"
             >
-              <option value="createdAt">Sort: Recency</option>
+              <option value="createdAt">Sort: Newest</option>
               <option value="price">Sort: Price</option>
               <option value="stock">Sort: Stock</option>
-              <option value="name">Sort: Title</option>
+              <option value="name">Sort: Name</option>
             </select>
           </div>
 
@@ -275,18 +273,18 @@ const AdminDashboard = ({ isModalOpen, setIsModalOpen }) => {
       </div>
 
       {/* Main Data Table */}
-      <div className="rounded-2xl bg-gradient-to-b from-slate-900/80 to-slate-950 border border-slate-800/80 shadow-2xl overflow-hidden">
-        <div className="p-6 border-b border-slate-800/80 flex items-center justify-between">
+      <div className="rounded-md bg-[#FCFBF8] border border-[#E5DEC9] overflow-hidden shadow-xs">
+        <div className="p-5 border-b border-[#E5DEC9] flex items-center justify-between">
           <div>
-            <h3 className="font-serif text-lg font-bold text-white">
-              Catalogue Registry
+            <h3 className="font-serif text-lg font-bold text-[#1E1916]">
+              All Hampers
             </h3>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Showing {products.length} products optimized via MongoDB aggregation pipeline.
+            <p className="text-xs text-[#6B6259] mt-0.5">
+              Showing {products.length} {products.length === 1 ? 'hamper' : 'hampers'} in catalogue
             </p>
           </div>
-          <span className="text-xs font-mono text-gold-400 bg-gold-500/10 border border-gold-500/20 px-3 py-1 rounded-full">
-            Pipeline: $facet + $match + $sort
+          <span className="text-xs font-sans text-[#6B6259] bg-[#F7F3EB] border border-[#E5DEC9] px-3 py-1 rounded-sm">
+            {products.length} Items Total
           </span>
         </div>
 
